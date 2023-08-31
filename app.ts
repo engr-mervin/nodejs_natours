@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import express from 'express';
 import fs from 'node:fs';
 import url from 'node:url';
@@ -10,28 +10,41 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(express.json());
+app.use((req: Request, res: Response, next: NextFunction) => {
+  console.log('Hello from the middleware 👌');
+  next();
+});
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  req.requestTime = new Date().toISOString();
+  next();
+});
+
 const tours: Tour[] = JSON.parse(
   fs.readFileSync(__dirname + path.sep + TOURS_SIMPLE, 'utf-8')
 );
 
-console.log(__dirname + path.sep + TOURS_SIMPLE);
-
-app.get('/api/v1/tours/:id', (req: Request, res: Response) => {
+const getTour = (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const tour = tours.find((el) => el.id === id);
 
   tour
     ? res.status(200).json({ status: 'success', data: tour })
     : res.status(404).json({ status: 'fail', message: 'Invalid ID' });
-});
+};
 
-app.get('/api/v1/tours', (req: Request, res: Response) => {
+const getAllTours = (req: Request, res: Response) => {
   return res
     .status(200)
-    .json({ status: 'success', results: tours.length, data: { tours } });
-});
+    .json({
+      status: 'success',
+      requestedAt: req.requestTime,
+      results: tours.length,
+      data: { tours },
+    });
+};
 
-app.post('/api/v1/tours', (req: Request, res: Response) => {
+const createTour = (req: Request, res: Response) => {
   const newId: number = tours.length;
   const newTour: Tour = Object.assign({ id: newId }, req.body);
 
@@ -54,17 +67,30 @@ app.post('/api/v1/tours', (req: Request, res: Response) => {
       }
     }
   );
-});
+};
 
-app.patch('/api/v1/tours/:id', (req: Request, res: Response) => {
+const updateTour = (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const tour = tours.find((el) => el.id === id);
-  tour
-    ? res.status(200).json({ status: 'success', data: '<Updated tour.../>' })
-    : res.status(404).json({ status: 'fail' });
-});
+  let tour = tours.find((el) => el.id === id);
+
+  if (!tour) res.status(404).json({ status: 'fail' });
+  tour = { ...tour, ...req.body };
+  res.status(200).json({ status: 'success', data: tour });
+};
+
+const deleteTour = (req: Request, res: Response) => {
+  res.status(204).json({ status: 'success', data: null });
+};
+
+app.route('/api/v1/tours').get(getAllTours).post(createTour);
+
+app
+  .route('/api/v1/tours/:id')
+  .get(getTour)
+  .patch(updateTour)
+  .delete(deleteTour);
 
 const port = 3000;
-~app.listen(port, () => {
+app.listen(port, () => {
   console.log(`App running on port ${port}`);
 });
