@@ -1,13 +1,25 @@
-import { __rootdirname, tours } from '../initialize.js';
-import path from 'node:path';
+import { tours } from '../initialize.js';
 import fs from 'node:fs';
-import { TOURS_SIMPLE } from '../utils/path.js';
-export const getTour = (req, res) => {
+import { TOURS_SIMPLE } from '../paths.js';
+export const checkID = (req, res, next, val) => {
     const id = Number(req.params.id);
     const tour = tours.find((el) => el.id === id);
-    tour
-        ? res.status(200).json({ status: 'success', data: tour })
-        : res.status(404).json({ status: 'fail', message: 'Invalid ID' });
+    if (!tour) {
+        return res.status(404).json({
+            status: 'fail',
+            message: 'Invalid ID',
+        });
+    }
+    req.payload = { tour };
+    next();
+};
+export const checkBody = (req, res, next) => {
+    if (!req.body?.name || !req.body?.price) {
+        return res
+            .status(404)
+            .json({ status: 'fail', message: 'Incomplete data sent.' });
+    }
+    next();
 };
 export const getAllTours = (req, res) => {
     return res.status(200).json({
@@ -17,11 +29,12 @@ export const getAllTours = (req, res) => {
         data: { tours },
     });
 };
+export const getTour = (req, res) => res.status(200).json({ status: 'success', data: req.payload.tour });
 export const createTour = (req, res) => {
     const newId = tours.length;
     const newTour = Object.assign({ id: newId }, req.body);
     tours.push(newTour);
-    fs.writeFile(__rootdirname + path.sep + TOURS_SIMPLE, JSON.stringify(tours), (err) => {
+    fs.writeFile(TOURS_SIMPLE, JSON.stringify(tours), (err) => {
         if (err) {
             res.status(500).send('Something went wrong.');
         }
@@ -37,13 +50,9 @@ export const createTour = (req, res) => {
     });
 };
 export const updateTour = (req, res) => {
-    const id = Number(req.params.id);
-    let tour = tours.find((el) => el.id === id);
-    if (!tour) {
-        return res.status(404).json({ status: 'fail' });
-    }
-    tour = { ...tour, ...req.body };
-    res.status(200).json({ status: 'success', data: tour });
+    res
+        .status(200)
+        .json({ status: 'success', data: { ...req.payload.tour, ...req.body } });
 };
 export const deleteTour = (req, res) => {
     res.status(204).json({ status: 'success', data: null });

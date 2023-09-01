@@ -1,18 +1,40 @@
-import { Request, Response } from 'express';
-import { __rootdirname, tours } from '../initialize.js';
+import { NextFunction, Request, Response } from 'express';
+import { tours } from '../initialize.js';
+import { __rootdirname } from '../paths.js';
 import { Tour } from '../utils/types.js';
-import path from 'node:path';
 import fs from 'node:fs';
-import { TOURS_SIMPLE } from '../utils/path.js';
+import { TOURS_SIMPLE } from '../paths.js';
 import { JSEND } from '../utils/types.js';
 
-export const getTour = (req: Request, res: Response) => {
+export const checkID = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+  val: any
+) => {
   const id = Number(req.params.id);
   const tour = tours.find((el) => el.id === id);
 
-  tour
-    ? res.status(200).json({ status: 'success', data: tour })
-    : res.status(404).json({ status: 'fail', message: 'Invalid ID' });
+  if (!tour) {
+    return res.status(404).json({
+      status: 'fail',
+      message: 'Invalid ID',
+    });
+  }
+
+  req.payload = { tour };
+
+  next();
+};
+
+export const checkBody = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.body?.name || !req.body?.price) {
+    return res
+      .status(404)
+      .json({ status: 'fail', message: 'Incomplete data sent.' });
+  }
+
+  next();
 };
 
 export const getAllTours = (req: Request, res: Response) => {
@@ -24,40 +46,34 @@ export const getAllTours = (req: Request, res: Response) => {
   });
 };
 
+export const getTour = (req: Request, res: Response) =>
+  res.status(200).json({ status: 'success', data: req.payload.tour });
+
 export const createTour = (req: Request, res: Response) => {
   const newId: number = tours.length;
   const newTour: Tour = Object.assign({ id: newId }, req.body);
 
   tours.push(newTour);
 
-  fs.writeFile(
-    __rootdirname + path.sep + TOURS_SIMPLE,
-    JSON.stringify(tours),
-    (err) => {
-      if (err) {
-        res.status(500).send('Something went wrong.');
-      } else {
-        const data: JSEND = {
-          status: 'success',
-          data: {
-            tours: newTour,
-          },
-        };
-        res.status(201).json(data);
-      }
+  fs.writeFile(TOURS_SIMPLE, JSON.stringify(tours), (err) => {
+    if (err) {
+      res.status(500).send('Something went wrong.');
+    } else {
+      const data: JSEND = {
+        status: 'success',
+        data: {
+          tours: newTour,
+        },
+      };
+      res.status(201).json(data);
     }
-  );
+  });
 };
 
 export const updateTour = (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  let tour = tours.find((el) => el.id === id);
-
-  if (!tour) {
-    return res.status(404).json({ status: 'fail' });
-  }
-  tour = { ...tour, ...req.body };
-  res.status(200).json({ status: 'success', data: tour });
+  res
+    .status(200)
+    .json({ status: 'success', data: { ...req.payload.tour, ...req.body } });
 };
 
 export const deleteTour = (req: Request, res: Response) => {

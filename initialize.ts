@@ -1,11 +1,5 @@
-import url from 'node:url';
-import { Tour } from './utils/types.js';
-import { TOURS_SIMPLE } from './utils/path.js';
+import { TOURS_SIMPLE } from './paths.js';
 import fs from 'node:fs';
-import path from 'node:path';
+import { Tour } from './utils/types.js';
 
-export const __rootdirname = path.dirname(url.fileURLToPath(import.meta.url));
-
-export const tours: Tour[] = JSON.parse(
-  fs.readFileSync(__rootdirname + path.sep + TOURS_SIMPLE, 'utf-8')
-);
+export const tours: Tour[] = JSON.parse(fs.readFileSync(TOURS_SIMPLE, 'utf-8'));
